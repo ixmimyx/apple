@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nailtastic Studio</title>
+<style>
+/* ============================================================
+   ألوان الثيم الافتتاحية — الجافاسكربت بيغيّرها بزرار الألوان
+   ============================================================ */
+:root{
+  --bg:        #1d0410;
+  --bg-soft:   #2a0718;
+  --card:      rgba(255,255,255,.07);
+  --card-line: rgba(255,255,255,.16);
+  --accent:    #ff5f9e;
+  --accent-2:  #ffc2dc;
+  --text:      #fff3f8;
+  --muted:     rgba(255,243,248,.62);
+  --shadow:    rgba(255, 95, 158, .45);  --bob-speed: 3.2s;   /* ⏱️ سرعة الطفو — رقم أقل = أسرع وأنضر */
+  --img-glow:  rgba(255, 95, 158, .55);
+  --radius:    26px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  min-height:100vh;
+  font-family:"Segoe UI", system-ui, -apple-system, sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  padding:clamp(16px, 4vw, 44px);
+  padding-bottom:118px;                      /* مساحة للأزرار اللي تحت */
+  transition:background .7s ease, color .7s ease;
+  overflow-x:hidden;
+}
+
+/* توهج خفيف ورا المحتوى عشان الخلفية السادة ما تبقاش فاضية */
+body::before, body::after{
+  content:""; position:fixed; border-radius:50%;
+  filter:blur(90px); opacity:.35; pointer-events:none; z-index:0;
+  transition:background .7s ease;
+}
+body::before{ width:420px; height:420px; background:var(--accent);  top:-120px; left:-100px; }
+body::after { width:380px; height:380px; background:var(--accent-2); bottom:-140px; right:-90px; }
+
+/* ❄️ طبقة الثلج اللي على الصفحة كلها (فوق الكروت — تحت الأزرار) */
+.page-snow{
+  position:fixed; inset:0;
+  width:100%; height:100%;
+  z-index:3;
+  display:block;
+  pointer-events:none;
+}
+
+.wrap{
+  position:relative; z-index:1;
+  max-width:1180px; margin:0 auto;
+  display:grid; grid-template-columns:minmax(320px, .85fr) 1.15fr;
+  gap:26px; align-items:start;
+}
+
+/* ============================================================
+   الكروت
+   ============================================================ */
+.card{
+  background:var(--bg-soft);
+  border:1px solid var(--card-line);
+  border-radius:var(--radius);
+  padding:26px;
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  box-shadow:0 24px 60px rgba(0,0,0,.35);
+  transition:background .7s ease, border-color .7s ease;
+}
+
+/* ---------- كوفر الصورة: على الكمبيوتر بعرض الصفحة ---------- */
+.cover-banner{
+  position:relative; display:block;
+  grid-column:1 / -1;
+  height:clamp(320px, 46vw, 540px);   /* ارتفاع الكوفر — كبرناه عشان الفيديو الطولي يبان أكبر */
+  border-radius:var(--radius); overflow:hidden;
+  border:none;                        /* شيلنا التحديد اللي حولين الصورة */
+  box-shadow:0 0 46px var(--img-glow),      /* هالو ملوّن يحيط بالإطار من كل الجهات */
+             0 28px 64px rgba(0,0,0,.55);   /* وشادو أسود تحت يبرز الارتفاع */
+  cursor:default;                 /* الكوفر للعرض بس — الدوسة عليها ملهاش أي أثر */
+  transition:box-shadow .7s ease; will-change:transform;   /* يحجز للطفو طبقة مستقلة = حركة من غير تنغيص */
+  animation:bob var(--bob-speed) cubic-bezier(.45, 0, .55, 1) infinite;   /* الطفو — على الإطار كله مش على الصورة بس */
+}
+.cover-banner img, .cover-banner video{
+  width:100%; height:100%; object-fit:cover; display:block;
+  transition:transform .6s ease;      /* الصور والفيديو بألوانها الأصلية في كل الثيمات */
+  animation:breathe 16s ease-in-out infinite;   /* حركة بطيئة: تكبير وتصغير */
+}
+@keyframes breathe{ 0%, 100%{ scale:1 } 50%{ scale:1.05 } }
+/* الزوم لما تقف بالماوس عليها — لو عايزه أكبر زوّد الرقم */
+.cover-banner:hover img, .cover-banner:hover video{ transform:scale(1.075); }
+.cover-banner::before{ /* لمعة بتعدي على الصورة زي اللي في الاسم */
+  content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(100deg, transparent 42%, rgba(255,255,255,.2) 50%, transparent 58%);
+  background-size:220% 100%;
+  animation:shine 5.5s linear infinite;
+}
+.cover-banner video{ object-position:center 22%; }   /* القص يمسك نصها من فوق مش من المنتصف */
+.cover-banner::after{ /* تعتيم تحت عشان الاسم يبان واضح */
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(to top, var(--bg) 3%, rgba(0,0,0,.25) 38%, transparent 70%);
+}
+.cover-text{
+  position:absolute; left:0; right:0; bottom:0; z-index:2;
+  padding:16px 26px; text-align:center;
+}
+
+/* الاسم والدايرة دول بتظهروا على الموبايل بس */
+.hero-id{ display:none; }
+
+/* ---------- العمود الشمال: الاسم والصورة الشخصية ---------- */
+.hero{ text-align:center; }
+
+.avatar-ring{
+  position:relative;
+  width:132px; height:132px; margin:0 auto 16px;
+  border-radius:50%; padding:5px; cursor:default;   /* دوسة ملهاش أثر — شكل بس */
+  overflow:hidden;                                  /* الزوم يفضل جوه الدايرة */
+  background:conic-gradient(from 180deg, var(--accent), var(--accent-2), var(--accent));
+  box-shadow:0 0 32px var(--shadow), 0 18px 34px var(--img-glow);
+  transition:background .7s ease, box-shadow .7s ease; will-change:transform;
+  animation:bob var(--bob-speed) cubic-bezier(.45, 0, .55, 1) infinite;   /* نفس طفو الكوفر */
+}
+.avatar-ring img, .avatar-ring video{
+  width:100%; height:100%; border-radius:50%;
+  object-fit:cover; display:block;
+  background:var(--bg-soft);
+  transition:transform .6s ease;
+  animation:breathe 16s ease-in-out infinite;   /* نفس حركة الكوفر */
+}
+.avatar-ring::before{ /* نفس اللمعة على الدايرة */
+  content:""; position:absolute; inset:0; z-index:1; pointer-events:none; border-radius:50%;
+  background:linear-gradient(100deg, transparent 42%, rgba(255,255,255,.2) 50%, transparent 58%);
+  background-size:220% 100%;
+  animation:shine 5.5s linear infinite;
+}
+.avatar-ring:hover img, .avatar-ring:hover video{ transform:scale(1.09); }
+
+.name{
+  font-size:clamp(30px, 5vw, 50px);
+  font-weight:800; letter-spacing:2px; line-height:1.05;
+  text-transform:uppercase;
+  background:linear-gradient(95deg, var(--accent-2), var(--accent) 55%, var(--accent-2));
+  background-size:220% 100%;                 /* أكبر من الاسم عشان اللمعة تعدي على الحروف */
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  text-shadow:0 0 26px var(--shadow);
+  animation:shine 5.5s linear infinite, bob var(--bob-speed) cubic-bezier(.45, 0, .55, 1) infinite;
+}
+@keyframes shine{ from{ background-position:0% 50%; } to{ background-position:220% 50%; } }   /* اللمعة — للاسم وللصورة اللي فوق ولدايرة البروفيل */
+@keyframes bob{ 0%, 100%{ transform:translateY(0) } 50%{ transform:translateY(-7px) } }       /* الطفو — المسافة هني، السرعة في --bob-speed سطر 20 */
+.tagline{
+  margin-top:8px; color:var(--muted);
+  font-size:14px; letter-spacing:5px; text-transform:uppercase;
+}
+
+/* ============================================================
+   🟢 علامة التواجد — ثابتة تحت الاسم
+   ============================================================ */
+.status-chip{
+  display:inline-flex; align-items:center; gap:9px;
+  margin-top:14px; padding:9px 18px; cursor:pointer;
+  border-radius:999px; user-select:none;
+  border:1px solid var(--card-line);
+  background:var(--bg-soft);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  font-size:12px; letter-spacing:3px; text-transform:uppercase;
+  color:var(--text);
+  transition:background .7s ease, border-color .7s ease;
+}
+.status-dot{ position:relative; flex:none; width:10px; height:10px; border-radius:50%;
+  background:#37e08d; box-shadow:0 0 14px #37e08d; }
+.status-dot::after{                    /* نبضة حوالين النقطة الخضرا */
+  content:""; position:absolute; inset:-4px; border-radius:50%;
+  border:1px solid #37e08d; animation:pulse 1.9s ease-out infinite;
+}
+@keyframes pulse{ 0%{transform:scale(.55); opacity:.95} 100%{transform:scale(2.2); opacity:0} }
+
+/* ============================================================
+   شريط السوشيال — عائم تحت في نص الشاشة وبينزلق يمين وشمال
+   ============================================================ */
+.social-dock{
+  position:fixed; left:50%; bottom:20px;
+  transform:translateX(-50%);
+  z-index:46;
+  animation:glide 5s ease-in-out infinite;
+}
+@keyframes glide{
+  0%,100%{ transform:translate(calc(-50% - 11px)) }
+  50%    { transform:translate(calc(-50% + 11px)) }
+}
+.socials{
+  position:relative; overflow:hidden;
+  display:flex; justify-content:space-between; align-items:center;
+  gap:14px; padding:11px 16px;
+  border-radius:999px;
+  border:1px solid var(--card-line);
+  background:var(--card);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  box-shadow:0 18px 44px rgba(0,0,0,.45), 0 0 26px var(--shadow);
+  transition:background .7s ease, border-color .7s ease, box-shadow .7s ease;
+}
+.socials::after{ /* لمعة بتعدي على الشريط */
+  content:""; position:absolute; top:0; bottom:0; width:45%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.22), transparent);
+  transform:translateX(-160%) skewX(-18deg);
+  animation:sweep 3.6s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes sweep{ 0%{transform:translateX(-160%) skewX(-18deg)} 60%,100%{transform:translateX(320%) skewX(-18deg)} }
+
+.soc{
+  width:44px; height:44px; border-radius:50%;
+  flex:none; display:grid; place-items:center;
+  border:1px solid var(--card-line);
+  background:rgba(255,255,255,.08);
+  color:var(--text);
+  cursor:pointer;                   /* مؤشر الإيد موجود، بس الدوسة ملهاش أثر — مفيش لينك */
+  user-select:none;
+  transition:transform .2s ease, background .35s ease, color .35s ease, box-shadow .35s ease;
+}
+.soc svg{ width:21px; height:21px; display:block; }
+.soc:hover{
+  transform:translateY(-5px) scale(1.08);
+  background:linear-gradient(135deg, var(--accent), var(--accent-2));
+  color:var(--bg-soft);
+  box-shadow:0 12px 26px var(--shadow);
+}
+
+/* ============================================================
+   مشغّل الموسيقى
+   ============================================================ */
+.player{ margin-top:26px; }
+.section-title{
+  font-size:12px; letter-spacing:3px; text-transform:uppercase;
+  color:var(--muted); margin-bottom:14px;
+  display:flex; align-items:center; gap:8px;
+}
+.section-title::after{ content:""; flex:1; height:1px; background:var(--card-line); }
+
+.cover{
+  width:100%; aspect-ratio:16/9; border-radius:20px; overflow:hidden;
+  border:1px solid var(--card-line); margin-bottom:16px;
+  display:flex; align-items:flex-end;
+  background:radial-gradient(circle at 30% 20%, var(--accent), transparent 60%),
+             radial-gradient(circle at 80% 90%, var(--accent-2), transparent 55%),
+             var(--bg-soft);
+}
+/* 🎚️ أعمدة الصوت (EQ): 32 عمود بيطلعوا فوق مع الصوت نفسه — شيلهم؟ سطر الـ HTML
+       بتاعهم تحت (data-viz) وسطر الرسم في السكربت (drawViz) */
+.viz{
+  display:flex; align-items:flex-end; gap:3px;
+  width:100%; height:74%; padding:0 18px 14px;
+}
+.viz i{
+  flex:1 1 0; min-width:2px; border-radius:99px 99px 3px 3px;
+  background:linear-gradient(180deg, var(--accent-2) 0%, var(--accent) 100%);
+  box-shadow:0 0 14px var(--shadow);
+  height:5%;
+}
+
+.now-title{ font-size:19px; font-weight:700; }
+.now-artist{ font-size:13px; color:var(--muted); margin-top:3px; }
+
+/* ---------- شريط الزمن: بقى سلايدر بمقبض زي مشغلات الموبايل ---------- */
+.seek{                                  /* المنطقة اللي بتتدوس عليها — عريانة عشان السهل تمسكها */
+  position:relative; margin:18px 0 4px; padding:11px 0;
+  cursor:pointer; touch-action:none;    /* touch-action:none = السحب بصوابع الموبايل يشتغل من غير ما الصفحة تتلف */
+}
+.seek::before{                          /* الخط الرمادي الفاضي ورا */
+  content:""; position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
+  height:3px; border-radius:99px; background:rgba(255,255,255,.13);
+  transition:height .2s cubic-bezier(.45,0,.55,1);
+}
+.progress{ position:relative; height:3px; display:flex; align-items:center; }
+.progress-fill{                         /* الجزء المتلوّن اللي بيملا مع الأغنية */
+  position:relative; height:3px; width:0%; border-radius:99px;
+  background:linear-gradient(90deg, var(--accent), var(--accent-2));
+  box-shadow:0 0 12px var(--shadow);
+  transition:height .2s cubic-bezier(.45,0,.55,1);
+}
+.knob{                                  /* المقبض — بيبان لما تقف بالماوس وبيكبر وانت بيسحب */
+  position:absolute; right:-8px; top:50%; width:16px; height:16px; border-radius:50%;
+  transform:translateY(-50%) scale(.4); opacity:0; pointer-events:none;
+  background:var(--text); border:2px solid var(--accent);
+  box-shadow:0 0 12px var(--shadow), 0 4px 12px rgba(0,0,0,.4);
+  transition:transform .18s cubic-bezier(.45,0,.55,1), opacity .18s ease;
+}
+.seek:hover .knob, .seek.drag .knob{ opacity:1; transform:translateY(-50%) scale(1); }
+.seek.drag .knob{ transform:translateY(-50%) scale(1.25); }   /* وانت بتسحب يكبّر شوية */
+.seek:hover::before, .seek:hover .progress-fill{ height:5px; } /* الخط بينسمّك لما تقرب منه */
+.times{ display:flex; justify-content:space-between; font-size:11px; color:var(--muted);
+  font-variant-numeric:tabular-nums; }   /* الأرقام ثابتة العرض عشان ميترجرجش */
+
+/* ---------- أزرار التحكم: كبسولات زجاجية بلمعة بتعدّي عليها ---------- */
+.controls{ display:flex; justify-content:center; align-items:center; gap:12px; margin-top:18px; }
+.ctrl{
+  position:relative; overflow:hidden;
+  width:52px; height:52px; border-radius:17px; cursor:pointer;
+  border:1px solid var(--card-line);
+  background:linear-gradient(160deg, rgba(255,255,255,.15), rgba(255,255,255,.04));
+  color:var(--text); font-size:15px; display:grid; place-items:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.18);
+  transition:transform .18s cubic-bezier(.45,0,.55,1), box-shadow .3s ease;
+}
+.ctrl::after{                          /* اللمعة المائلة اللي بتزحلق على الزرار */
+  content:""; position:absolute; top:-20%; bottom:-20%; width:40%; left:-60%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.4), transparent);
+  transform:skewX(-18deg); transition:left .5s ease;
+}
+.ctrl:hover{ transform:translateY(-3px); box-shadow:0 12px 26px var(--shadow), inset 0 1px 0 rgba(255,255,255,.26); }
+.ctrl:hover::after{ left:130%; }
+.ctrl:active{ transform:translateY(0) scale(.95); }   /* تحسّه غمّض فعلاً */
+.ctrl.main{
+  width:64px; height:64px; border-radius:21px; font-size:20px; border:none;
+  background:linear-gradient(135deg, var(--accent), var(--accent-2));
+  color:var(--bg-soft);
+  box-shadow:0 12px 30px var(--shadow), inset 0 1px 0 rgba(255,255,255,.45);
+}
+
+.volume{ display:flex; align-items:center; gap:10px; margin-top:18px; font-size:13px; color:var(--muted); }
+/* سلايدر الصوت نفس ستايل شريط الزمن — النسبة المحسوبة بتترسم في الجافاسكربت */
+input[type=range]{
+  flex:1; height:4px; border-radius:99px; cursor:pointer;
+  -webkit-appearance:none; appearance:none;
+  background:linear-gradient(90deg, var(--accent) 0 var(--vol,80%), rgba(255,255,255,.13) var(--vol,80%) 100%);
+  box-shadow:0 0 10px var(--shadow);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:15px; height:15px; border-radius:50%; margin-top:0;
+  background:var(--text); border:2px solid var(--accent); box-shadow:0 0 12px var(--shadow);
+  transition:transform .16s ease;
+}
+input[type=range]:hover::-webkit-slider-thumb{ transform:scale(1.18); }
+input[type=range]::-moz-range-thumb{
+  width:15px; height:15px; border-radius:50%; border:2px solid var(--accent); background:var(--text);
+}
+
+.playlist{ margin-top:22px; display:flex; flex-direction:column; gap:8px; }
+.track{
+  display:flex; align-items:center; gap:12px;
+  padding:11px 14px; border-radius:16px; cursor:pointer;
+  border:1px solid transparent; background:rgba(255,255,255,.05);
+  transition:background .25s ease, border-color .25s ease, transform .15s ease;
+}
+.track:hover{ background:rgba(255,255,255,.11); transform:translateX(3px); }
+.track.active{ border-color:var(--accent); background:rgba(255,255,255,.13); }
+.track .idx{
+  width:26px; height:26px; border-radius:50%; flex:none;
+  display:grid; place-items:center; font-size:11px; font-weight:700;
+  background:rgba(255,255,255,.1); color:var(--muted);
+}
+.track.active .idx{ background:var(--accent); color:var(--bg-soft); }
+.track .meta{ min-width:0; }
+.track .t{ font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.track .a{ font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.track .dur{ margin-left:auto; font-size:11px; color:var(--muted); flex:none; }
+
+/* ============================================================
+   الجاليري — صور المغنّي (عمود الشمال في الصفحة)
+   ============================================================ */
+.gallery{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+  gap:14px;
+}
+.tile{
+  position:relative; aspect-ratio:3/4; border-radius:20px; overflow:hidden;
+  border:1px solid var(--card-line); cursor:pointer; background:var(--bg-soft);
+  box-shadow:0 14px 30px var(--img-glow);
+  transition:transform .25s ease, box-shadow .45s ease;
+}
+.tile:hover{ transform:translateY(-5px) scale(1.02); box-shadow:0 26px 54px var(--img-glow); }
+.tile img{
+  width:100%; height:100%; object-fit:cover; display:block;
+  transition:transform .5s ease;        /* الصور بألوانها الأصلية في أي ثيم */
+}
+.tile:hover img{ transform:scale(1.07); }
+.tile .cap{
+  position:absolute; left:0; right:0; bottom:0; padding:10px 12px; z-index:3;
+  font-size:11.5px; letter-spacing:.5px;
+  background:linear-gradient(to top, rgba(0,0,0,.72), transparent);
+  opacity:0; transform:translateY(8px); transition:.3s ease;
+}
+.tile:hover .cap{ opacity:1; transform:translateY(0); }
+.tile video.reel{                                /* الفيديو بيشتغل جوه التربيعّة عند الماوس */
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:cover; z-index:2; display:block;
+}
+.tile .badge{                                    /* علامة ▶ على التربيعات اللي فيها فيديو */
+  position:absolute; top:10px; left:10px; z-index:4;
+  width:30px; height:30px; border-radius:50%;
+  display:grid; place-items:center; font-size:11px;
+  background:rgba(0,0,0,.45); color:#fff;
+  border:1px solid var(--card-line);
+}
+
+/* ---------- الصورة الكبيرة (بتفتح بالضغط على أي صورة — للعرض فقط) ---------- */
+.lightbox{
+  position:fixed; inset:0; z-index:50; display:none;
+  align-items:center; justify-content:center; flex-direction:column; gap:16px;
+  background:rgba(8,2,6,.82); backdrop-filter:blur(10px);
+  padding:24px;
+}
+.lightbox.open{ display:flex; animation:fade .25s ease; }
+@keyframes fade{ from{opacity:0} to{opacity:1} }
+.lb-frame{
+  border-radius:22px; overflow:hidden;
+  border:1px solid var(--card-line);
+  box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 70px var(--img-glow);
+  line-height:0;
+}
+.lb-frame img{
+  max-width:min(88vw, 520px); max-height:70vh;
+  object-fit:cover; display:block;
+}
+.lightbox .lb-cap{ font-size:14px; letter-spacing:1px; color:var(--text); }
+.lb-btn{
+  position:absolute; z-index:12; width:46px; height:46px; border-radius:50%;
+  border:1px solid var(--card-line); background:rgba(255,255,255,.1);
+  color:var(--text); font-size:18px; cursor:pointer; display:grid; place-items:center;
+  transition:background .2s ease, transform .15s ease;
+}
+.lb-btn:hover{ background:var(--accent); color:var(--bg-soft); transform:scale(1.07); }
+.lb-close{ top:22px; right:22px; }
+.lb-prev{ left:18px; top:50%; transform:translateY(-50%); }
+.lb-next{ right:18px; top:50%; transform:translateY(-50%); }
+.lb-prev:hover,.lb-next:hover{ transform:translateY(-50%) scale(1.07); }
+
+/* ============================================================
+   الزرارين الثابتين تحت (شمال = الموسيقى — يمين = الألوان)
+   ============================================================ */
+.dock{
+  position:fixed; bottom:20px;
+  z-index:45; display:flex; flex-direction:column-reverse; align-items:center; gap:8px;
+}
+.dock-left{ left:20px; }
+.dock-right{ right:20px; }
+
+.dock-btn{
+  width:56px; height:56px; border-radius:50%; cursor:pointer;
+  border:1px solid var(--card-line);
+  background:linear-gradient(135deg, var(--accent), var(--accent-2));
+  color:var(--bg-soft);
+  display:grid; place-items:center;
+  box-shadow:0 12px 30px var(--shadow), 0 0 0 5px rgba(0,0,0,.14);
+  transition:transform .2s ease, box-shadow .4s ease, background .7s ease;
+}
+.dock-btn svg{ width:24px; height:24px; display:block; }
+.dock-btn:hover{ transform:translateY(-3px) scale(1.06); }
+.dock-btn:active{ transform:scale(.95); }
+.dock-cap{
+  font-size:9.5px; letter-spacing:1.4px; text-transform:uppercase;
+  color:var(--muted);
+  padding:4px 9px; border-radius:999px;
+  border:1px solid var(--card-line); background:var(--card);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  white-space:nowrap;
+}
+
+.eq{ display:flex; align-items:flex-end; gap:3px; height:18px; }
+.eq i{
+  width:3px; height:4px; border-radius:2px; display:block;
+  background:var(--accent); opacity:.55;
+  animation:eq 1s ease-in-out infinite; animation-play-state:paused;
+}
+.eq i:nth-child(2){ animation-delay:.18s }
+.eq i:nth-child(3){ animation-delay:.36s }
+.eq i:nth-child(4){ animation-delay:.54s }
+body.playing .eq i{ opacity:1; animation-play-state:running; }
+@keyframes eq{ 0%,100%{height:4px} 50%{height:17px} }
+
+.swatch{
+  width:22px; height:22px; border-radius:50%;
+  border:2px solid var(--bg-soft);
+  background:var(--accent-2);
+  box-shadow:0 0 0 2px var(--accent);
+}
+
+/* ============================================================
+   المقاسات الصغيرة
+   ============================================================ */
+@media (max-width:880px){
+  .wrap{ grid-template-columns:1fr; }
+  .cover-banner{ display:none; }        /* على الموبايل: مفيش كوفر */
+  .hero-id{ display:block; }            /* وعلى كده الدايرة والاسم يظهروا جوه الكارت */
+}
+@media (max-width:600px){
+  body{ padding-bottom:104px; }
+  .dock-btn{ width:46px; height:46px; }
+  .dock-btn svg{ width:20px; height:20px; }
+  .dock-cap{ display:none; }
+  .dock-left{ left:12px; } .dock-right{ right:12px; }
+  .dock-left, .dock-right{ bottom:14px; }
+  .social-dock{ bottom:14px; }
+  .socials{ gap:8px; padding:8px 11px; }
+  .soc{ width:38px; height:38px; }
+  .soc svg{ width:18px; height:18px; }
+}
+@media (prefers-reduced-motion: reduce){
+  .social-dock, .socials::after, .status-dot::after{ animation:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ❄️ طبقة الثلج بتاعت الصفحة — متلمسهاش، بتترسم لوحدها -->
+<canvas id="pageSnow" class="page-snow"></canvas>
+
+<!-- ▶️ زرار الموسيقى الثابت تحت-شمال -->
+<div class="dock dock-left">
+  <button class="dock-btn" id="dockPlay" title="Play / Pause" aria-label="Play or pause music">
+    <svg id="dockPlayIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5-11-6.5z"/></svg>
+  </button>
+  <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <span class="dock-cap">Music</span>
+</div>
+
+<!-- 🎨 زرار تغيير الألوان الثابت تحت-يمين — بيغيّر الخلفية + لون الثلج + جلو الصور
+     (الصور نفسها بتفضل بألوانها الأصلية في كل الثيمات) — الثيمات في CONFIG.themes (سطر 775 تحت) -->
+<div class="dock dock-right">
+  <button class="dock-btn" id="themeBtn" title="Change image &amp; background colors" aria-label="Change colors">
+    <span class="swatch"></span>
+  </button>
+  <span class="dock-cap" id="themeLabel">Pink Neon</span>
+</div>
+
+<!-- 🔗 شريط السوشيال العائم تحت — أيقونات للزينة بس (مفيش لينكات) من CONFIG.socials -->
+<div class="social-dock">
+  <div class="socials" id="socials"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- 🖼️ الكوفر: صورتك بعرض الصفحة من فوق (بيظهر على الكمبيوتر بس)
+       فيها تنفّس بطيء + طفو + لمعة، وتكبير لما تقف بالماوس — والدوسة عليها ملهاش أي أثر
+       غيّر الرابط من CONFIG.profilePhoto (سطر 663 تحت) والفيديو من CONFIG.coverVideo (سطر 679 تحت)
+       حجم الكوفر: CSS سطر 81 (الارتفاع) وسطر 83 (التحديد متشيل) وسطر 84 (الجلو والشادو)
+       الحركة: سطر 88 (طفو) · 93 (تنفّس) · 97 (زوم) · 98 (لمعة) · 153 (حركة الاسم) -->
+  <div class="cover-banner">
+    <img data-photo src="" alt="Cover photo" />
+    <div class="cover-text">
+      <h1 class="name" data-name>Name</h1>
+      <p class="tagline" data-tagline>Tagline</p>
+      <!-- 🟢 علامة التواجد — الكلام من CONFIG.status (سطر 693 تحت) -->
+      <div class="status-chip" data-status>
+        <span class="status-dot"></span><span class="status-text">Online</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= العمود الشمال ================= -->
+  <div>
+    <section class="card hero">
+
+      <!-- 🟣 على الموبايل بس: الصورة دايرة + الاسم (نفس رابط الكوفر)
+           نفس الطفو والتنفس واللمعة والزوم — CSS سطر 128 · 135 · 137 · 143 -->
+      <div class="hero-id">
+        <div class="avatar-ring">
+          <img data-photo src="" alt="Profile photo" />
+        </div>
+        <h1 class="name" data-name>Name</h1>
+        <p class="tagline" data-tagline>Tagline</p>
+        <!-- 🟢 علامة التواجد على الموبايل — من نفس CONFIG.status (سطر 693 تحت) -->
+        <div class="status-chip" data-status>
+          <span class="status-dot"></span><span class="status-text">Online</span>
+        </div>
+      </div>
+
+      <div class="player">
+        <div class="section-title">Now Playing</div>
+        <div class="cover"><div class="viz" id="viz" aria-hidden="true"></div></div>
+        <div class="now-title" id="nowTitle">—</div>
+        <div class="now-artist" id="nowArtist">—</div>
+
+        <!-- 🎚️ شريط الزمن سلايدر: شكله سطر 272 ➜ 300 (المقبض سطر 289) | منطق السحب سطر 1046 ➜ 1062
+             🔘 الأزرار كبسولات بلمعة: سطر 302 ➜ 326 | 🔊 سلايدر الصوت: سطر 328 ➜ 344 -->
+        <div class="seek" id="seek"><div class="progress" id="progress"><div class="progress-fill" id="progressFill"><span class="knob"></span></div></div></div>
+        <div class="times"><span id="curTime">0:00</span><span id="durTime">0:00</span></div>
+
+        <div class="controls">
+          <button class="ctrl" id="prevBtn" title="Previous">&#9198;</button>
+          <button class="ctrl main" id="playBtn" title="Play / Pause">&#9654;</button>
+          <button class="ctrl" id="nextBtn" title="Next">&#9197;</button>
+        </div>
+
+        <div class="volume">
+          <span>Vol</span>
+          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.8" />
+        </div>
+
+        <div class="section-title" style="margin-top:26px">Playlist</div>
+        <!-- 🎵 قائمة الأغاني بتتبنى هنا تلقائيًا من CONFIG.songs (سطر 719 تحت) -->
+        <div class="playlist" id="playlist"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= العمود اليمين ================= -->
+  <section class="card">
+    <div class="section-title">Gallery</div>
+    <!-- 🎬 فيديوهات الجاليري بتظهر هنا تلقائيًا — ضيف سطر جديد في CONFIG.images (سطر 738 تحت) -->
+    <div class="gallery" id="gallery"></div>
+  </section>
+
+</div>
+
+<!-- 🔍 الصورة الكبيرة: للعرض فقط — X تقفل، وسهمين يمين وشمال -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-btn lb-close" id="lbClose" title="Close">&#10005;</button>
+  <button class="lb-btn lb-prev"  id="lbPrev"  title="Previous">&#10094;</button>
+  <button class="lb-btn lb-next"  id="lbNext"  title="Next">&#10095;</button>
+  <div class="lb-frame"><img id="lbImage" src="" alt="" /></div>
+  <div class="lb-cap" id="lbCaption"></div>
+</div>
+
+<!-- 🔊 مصدر الصوت — crossorigin مطلوب عشان أعمدة EQ تقدر تقرأ الصوت نفسه
+     (ارفع السطر ده لو حطيت لينك أغنية مابيشتغلش من مواقع تانية) -->
+<audio id="audio" crossorigin="anonymous"></audio>
+
+<script>
+/* ################################################################
+   ###########  ★★  عَدِّل كُل حَاجَة مِنْ هُنَا  ★★  #############
+   ################################################################ */
+const CONFIG = {
+
+  /* ================================================================
+     🗺️  خريطة الصُّور — كل صورة في الصفحة ومكانها في الكود
+     ================================================================
+     سطر 663  ➜ صورتك الشخصية (profilePhoto)
+                بتظهر في مكانين مرة واحدة:
+                  • الإطار الكبير فوق على الكمبيوتر (الكوفر)
+                  • الدايرة اللي جوه الكارت على الموبايل
+                الاتنين فيهم حركة بطيئة + طفو + لمعة + زوم بالماوس، والدوسة ملهاش أثر
+     سطر 681  ➜ فيديو الكوفر (coverVideo.src) — رابط ملف مباشر .mp4 / .webm
+     سطر 682  ➜ صورة تظهر لحد ما الفيديو يحمّل (coverVideo.poster)
+                سيبها "" فاضية ➜ هتستخدم صورة سطر 663 تلقائيًا
+     سطر 258  ➜ أعمدة الـ EQ اللي بتتحرك مع الأغنية (شكلها في CSS)
+     سطور 740 ➜ 748 ➜ تربيعات الجاليري (CONFIG.images)
+                كل سطر = تربيعّة: src = الصورة المصغّرة، video = الفيديو
+                اللي بيشتغل جوه التربيعّة نفسه — من غير اسم ولا نافذة
+     ⚠️ التوهج والثلج وباقي الأشكال رسم بالكود — ملهاش روابط تغيّرها
+     ================================================================ */
+
+  /* ----------------------------------------------------------------
+     1) الاسم والسطر اللي تحته — بيظهروا فوق الكوفر وعلى الموبايل
+     ---------------------------------------------------------------- */
+  name:    "Apple",
+  tagline: "AappLe 45006611",
+
+  /* ----------------------------------------------------------------
+     2) صورتك الشخصية  ➜  حط لينك الصورة بين العلامتين " "
+        (هي اللي بتظهر في البوكس الكبير فوق + الدايرة على الموبايل
+         وبتفضل هي البديل لو الفيديو ماشتغلش)
+     ---------------------------------------------------------------- */
+  profilePhoto: "https://picsum.photos/seed/portrait/500/500",  // 🖼️ مكانها في خريطة الصور (سطر 635 فوق)
+
+  /* ----------------------------------------------------------------
+     2-ب) 🎬 فيديو قصير مكان الصورة فوق (الكوفر + الدايرة)
+        on     = false يرجّع الصورة العادية
+        src    = رابط الفيديو المباشر — لازم ينتهي بـ .mp4 أو .webm
+                 من Pinterest: افتح البين، اضغط كليك يمين على الفيديو
+                 واختار "Copy video address"، الرابط بيكون شكله
+                 https://scontent.cdn.pinimg.com/...xxxx.mp4
+                 ⚠️ رابط الصفحة (https://pin.it/xxxx أو pinterest.com/pin/xxxx)
+                    مش هيشتغل — لازم رابط الملف نفسه اللي بيخلص .mp4
+        poster = (اختياري) صورة تظهر قبل ما الفيديو يحمّل —
+                 لو سيبها فاضية هتستخدم صورتك الشخصية فوق
+        ملاحظة: الفيديو بيشتغل صامت بالضرورة (المتصفحات بتمنع الصوت
+                تلقائيًا)، والأغاني فضلت شغالة من قائمة الـ mp3
+     ---------------------------------------------------------------- */
+  coverVideo: {
+    on: true,
+    src: "https://v1.pinimg.com/videos/iht/expMp4/57/db/3e/57db3e1a1468f38fd4d0b0e117449030_720w.mp4",
+    poster: "https://i.pinimg.com/736x/02/41/0e/02410e67c440aa53775749333da264b8.jpg"
+  },
+
+  /* ----------------------------------------------------------------
+     2-ج) 🟢 علامة التواجد — بتظهر تحت الاسم وهي ثابتة Online
+        on        = false يخفي العلامة خالص
+        onlineText= الكلام اللي بيظهر
+
+        ⚠️ للتوضيح: صفحة HTML ملهاش صلاحية تعرف إنت موجود في xat.com
+           ولا لا — المتصفح بيمنع أي موقع يقرأ حالة موقع تاني.
+     ---------------------------------------------------------------- */
+  status: {
+    on: true,
+    onlineText: "Online · at xat"
+  },
+
+  /* ----------------------------------------------------------------
+     3) شريط السوشيال  ➜  أيقونات للزينة بس — مفيش لينك ورا أي واحدة
+        network لازم يكون واحد من: facebook / twitter / instagram / whatsapp
+        عايز تغيّر الأيقونة؟ بدّل الكلمة في network — الدوسة عليها ملهاش أثر
+     ---------------------------------------------------------------- */
+  socials: [
+    { network:"facebook"  },
+    { network:"twitter"   },
+    { network:"instagram" },
+    { network:"whatsapp"  }
+  ],
+
+  /* ----------------------------------------------------------------
+     4) 🎵 الأغاني  ➜  كل سطر = أغنية في القائمة (الحالي: كمان هادي رومانسي)
+        title  = اسم الأغنية
+        artist = اسم الملحّن أو المؤدّي
+        src    = لينك ملف الـ mp3
+        أعمدة الـ EQ اللي بتتحرك مع الأغنية: شكلها CSS سطر 258 وحركتها سطر 974
+        👈 اللي بيغيّر الأغاني: كلمة src في كل سطر من السطور 720 ➜ 724
+           غيّر الكلام اللي بين القوسين " " بعدها بس، وسيّب الفصلة في آخر السطر
+     ---------------------------------------------------------------- */
+  songs: [
+    { title: "Méditation from Thaïs",      artist: "Jules Massenet · Fritz Kreisler",          src: "https://archive.org/download/78_thas-intermezzo-meditation-peligieuse_fritz-kreisler-george-falkenstein-massenet_gbia0504463a/Tha%C3%AFs-Intermezzo%20(Meditation%20Peligieuse)%20-%20Fritz%20Kreisler.mp3" },
+    { title: "I Crisantemi",               artist: "Giacomo Puccini · Juilliard Quartet",      src: "https://archive.org/download/PucciniICrisantemijuilliardQt/Puccini-ICrisantemijuilliardQt.mp3" },
+    { title: "Canon in D",                 artist: "Johann Pachelbel · violin",                src: "https://archive.org/download/PachelbelCanonInDMajorViolineXquisiteVersion/Pachelbel%20Canon%20in%20D%20major%20-%20Violin%20(eXquisite%20version).mp3" },
+    { title: "Adagio in G minor",          artist: "Tomaso Albinoni",                          src: "https://archive.org/download/20170304AlbinoniAdagioInGMin/20170304%20Albinoni%3B%20Adagio%20in%20G%20min.mp3" },
+    { title: "Liebeslied · Love's Sorrow", artist: "Fritz Kreisler",                           src: "https://archive.org/download/78_liebeslied-loves-sorrow_fritz-kreisler-kreisler_gbia7040683b/Liebeslied%20(Love's%20Sorrow)%20-%20Fritz%20Kreisler.mp3" }
+  ],
+
+  /* ----------------------------------------------------------------
+     5) 🎬 الجاليري (التربيعات اللي على اليمين)
+        src     = لينك الصورة المصغّرة (بتبان على التربيعّة)
+        video   = لينك الفيديو المباشر .mp4 — بيشتغل في مكانه جوه التربيعّة:
+                  بالماوس على الكمبيوتر، وبالدوسة على الموبايل (دوسة تانية توقفه)
+                  من بينترست: لازم رابط الملف نفسه (v1.pinimg.com/...mp4)
+                  مش رابط صفحة الـ pin
+        caption = (اختياري) اسم يبان تحت التربيعّة — سيبه من غير سطر عشان ميبانش
+        تربيعّة من غير video = صورة عادية، والضغط عليها يفتحها كبيرة
+        أي عدد تضيفه هينزل في الشبكة لوحده
+     ---------------------------------------------------------------- */
+  images: [
+    /* 🎬 كل سطر تحت = تربيعّة فيديو — غيّر src و video بس */
+    { src: "https://i.pinimg.com/736x/33/92/d2/3392d238d9a80d713a9cf6965575c911.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/c2/93/02/c29302f41ad5205461f87ca9e20419c0_720w.mp4" },
+    { src: "https://i.pinimg.com/736x/63/60/d2/6360d2c546a786282f1f7bc2ccff8121.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/03/3d/cf/033dcf76d54bd10191909fcd57b34fd7_720w.mp4" },
+    { src: "https://i.pinimg.com/736x/88/a6/cb/88a6cba71ac5b76a43ddfce40298164f.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/85/e6/b7/85e6b7a4ef82196f5e512f8928837b75_720w.mp4" },
+    { src: "https://i.pinimg.com/736x/c8/ba/63/c8ba6310149055b9bdaa2dc5d6d58335.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/34/92/e9/3492e95c8edc89a24987f77cf9fc62a1_720w.mp4" },
+    { src: "https://i.pinimg.com/736x/e6/a6/24/e6a6245c97be23938cc13348635261d0.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/d3/c3/78/d3c378ed6ffabc4b6a6e0adb3f701e89_720w.mp4" },
+    { src: "https://i.pinimg.com/736x/af/70/2e/af702efa44fbedea10a6f37bdc3c5cfd.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/c0/79/8b/c0798bb0769651419f9f65603a60fa83_720w.mp4" },
+    { src: "https://i.pinimg.com/736x/58/d8/2c/58d82c0a30f8548a21eed3a26f738677.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/32/d4/26/32d4267c315496c80d80a758659bce57_720w.mp4" },
+    { src: "https://i.pinimg.com/736x/11/f0/ef/11f0ef984ea87bf55e7cc61c749082ee.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/55/3b/38/553b387bfb8ba9ed3c21cba269c4806c_720w.mp4" },
+    { src: "https://i.pinimg.com/736x/a9/4b/ee/a94bee0608a4a02b2037758a59a31ae3.jpg", video: "https://v1.pinimg.com/videos/iht/expMp4/88/a4/df/88a4dfa8f77c2e1efa3c715c2d3d25eb_540w.mp4" }
+  ],
+
+  /* ----------------------------------------------------------------
+     6) ❄️ شكل الثلج اللي على الصفحة كلها
+        on      = false يطفئه خالص
+        density = رقم أكبر ➜ نقاط أقل (خفيف) — رقم أصغر ➜ نقاط أكتر
+        speed   = السرعة | size = حجم النقاط | alpha = الشفافية
+     ---------------------------------------------------------------- */
+  pageSnow: {
+    on: true,
+    density: 14000,
+    speed:   .5,
+    size:    1.1,
+    rise:    .12,
+    alpha:   .55,
+    min:     18,
+    max:     55
+  },
+
+  /* ----------------------------------------------------------------
+     7) 🎨 الثيمات — زرار الألوان تحت-يمين بيلف عليها واحدة واحدة
+        bg      = لون الخلفية            accent  = اللون الرئيسي
+        accent2 = اللون الفاتح            text    = لون الكلام
+        glow    = لون الشادو حوالين الصور
+        عايز ثيم جديد؟ نسخ سطور ثيم كامل وغيّر القيم
+     ---------------------------------------------------------------- */
+  themes: [
+    { label:"Pink Neon",   bg:"#1d0410", card:"rgba(255,255,255,.07)", line:"rgba(255,255,255,.16)",
+      accent:"#ff5f9e", accent2:"#ffc2dc", text:"#fff3f8", shadow:"rgba(255,95,158,.45)", glow:"rgba(255,95,158,.55)" },
+    { label:"Black Noir",  bg:"#050506", card:"rgba(255,255,255,.06)", line:"rgba(255,255,255,.18)",
+      accent:"#c9c9d4", accent2:"#ffffff", text:"#f4f4f7", shadow:"rgba(255,255,255,.28)", glow:"rgba(210,210,225,.35)" },
+    { label:"Lilac Dream", bg:"#140a24", card:"rgba(255,255,255,.07)", line:"rgba(255,255,255,.16)",
+      accent:"#b06bff", accent2:"#e6c8ff", text:"#f6efff", shadow:"rgba(176,107,255,.45)", glow:"rgba(176,107,255,.55)" },
+    { label:"Sky Blue",    bg:"#04121f", card:"rgba(255,255,255,.07)", line:"rgba(255,255,255,.16)",
+      accent:"#3fb6ff", accent2:"#c9ecff", text:"#eefaff", shadow:"rgba(63,182,255,.45)", glow:"rgba(63,182,255,.55)" },
+    { label:"Mint",        bg:"#04170f", card:"rgba(255,255,255,.07)", line:"rgba(255,255,255,.16)",
+      accent:"#3fd6a4", accent2:"#c8f7e4", text:"#eafff7", shadow:"rgba(63,214,164,.45)", glow:"rgba(63,214,164,.55)" },
+    { label:"Gold",        bg:"#1a1203", card:"rgba(255,255,255,.07)", line:"rgba(255,255,255,.16)",
+      accent:"#ffb347", accent2:"#ffe6b0", text:"#fff8ec", shadow:"rgba(255,179,71,.45)", glow:"rgba(255,179,71,.55)" },
+    { label:"Soft Light",  bg:"#f6eef1", card:"rgba(255,255,255,.65)", line:"rgba(0,0,0,.10)",
+      accent:"#ff77a9", accent2:"#ffd0e2", text:"#2a1020", shadow:"rgba(255,119,169,.35)", glow:"rgba(120,60,90,.28)" }
+  ]
+};
+/* ################################################################
+   ###########  🛑  اللي تحت ده كود التشغيل — متغيّرش فيه  #######
+   ################################################################ */
+
+/* ---- أيقونات السوشيال (مرسومة بالكود — مش محتاجة تعديل) ---- */
+const ICONS = {
+  facebook:  '<path d="M13.6 21v-7.2h2.5l.4-2.9h-2.9V9.2c0-.8.2-1.4 1.4-1.4h1.6V5.2c-.3 0-1.2-.1-2.3-.1-2.3 0-3.8 1.3-3.8 3.8v2h-2.5v2.9h2.5V21h3.1z"/>',
+  twitter:   '<path d="M17.6 3h3.1l-6.8 7.8L21.9 21h-6.3l-4.9-6.4L5 21H1.9l7.3-8.3L1.7 3H8l4.4 5.8L17.6 3zm-1.1 16.1h1.7L6.8 4.8H5l11.5 14.3z"/>',
+  instagram: '<path d="M7.6 3h8.8A4.6 4.6 0 0 1 21 7.6v8.8a4.6 4.6 0 0 1-4.6 4.6H7.6A4.6 4.6 0 0 1 3 16.4V7.6A4.6 4.6 0 0 1 7.6 3zm0 2A2.6 2.6 0 0 0 5 7.6v8.8A2.6 2.6 0 0 0 7.6 19h8.8a2.6 2.6 0 0 0 2.6-2.6V7.6A2.6 2.6 0 0 0 16.4 5H7.6zM12 7.2a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6zm0 2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6zm5.2-2.9a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2z"/>',
+  whatsapp:  '<path d="M12 2.2A9.7 9.7 0 0 0 3.6 16.8L2.4 21.6l4.9-1.3A9.7 9.7 0 1 0 12 2.2zm0 2a7.7 7.7 0 0 1 0 15.4 7.6 7.6 0 0 1-4-1.1l-.4-.2-2.7.7.7-2.6-.2-.4A7.7 7.7 0 0 1 12 4.2zm-3 3.4c-.2 0-.5.1-.7.4-.3.3-.9.9-.9 2s.8 2.3 1 2.5c.1.2 1.6 2.6 4 3.5 2 .8 2.4.7 2.8.6.5 0 1.4-.6 1.6-1.2.2-.6.2-1 .1-1.1l-.5-.3-1.5-.7c-.2-.1-.4-.1-.5.1l-.7.9c-.2.2-.3.2-.5.1-.3-.1-1.1-.4-2-1.3-.8-.7-1.3-1.5-1.4-1.7-.1-.3 0-.4.1-.5l.4-.5c.1-.2.1-.3.2-.5v-.4l-.8-1.9c-.2-.4-.4-.4-.5-.4h-.3z"/>'
+};
+
+const $ = (id) => document.getElementById(id);
+const root = document.documentElement;
+
+/* ---------- 1. الاسم + الصورة (كوفر على الكمبيوتر — دايرة على الموبايل) ---------- */
+document.querySelectorAll("[data-name]").forEach(el => el.textContent = CONFIG.name);
+document.querySelectorAll("[data-tagline]").forEach(el => el.textContent = CONFIG.tagline);
+document.querySelectorAll("[data-photo]").forEach(el => el.src = CONFIG.profilePhoto);
+document.title = CONFIG.name;
+
+/* ---------- 1-ب) فيديو الكوفر — يقبل أي رابط ملف مباشر (.mp4 / .webm) ---------- */
+(function mountCoverVideo(){
+  const v = CONFIG.coverVideo;
+  if (!v.on || !v.src) return;
+
+  if (!/\.(mp4|webm|m4v|mov)(\?|$)/i.test(v.src)){
+    console.warn("⚠️ رابط الفيديو ده مش رابط ملف مباشر — لازم ينتهي بـ .mp4 أو .webm. لو ده رابط صفحة Pinterest، كليك يمين على الفيديو نفسه واختار Copy video address.");
+  }
+
+  document.querySelectorAll("[data-photo]").forEach(photo => {
+    const vid = document.createElement("video");
+    vid.src = v.src;
+    vid.poster = v.poster || CONFIG.profilePhoto;
+    vid.muted = true; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
+    vid.setAttribute("playsinline", "");
+    vid.setAttribute("preload", "metadata");
+    vid.addEventListener("error", () => { vid.remove(); photo.style.display = ""; });
+    photo.after(vid);
+    photo.style.display = "none";
+    vid.play().catch(() => {});           // المتصفح يمنع التشغيل؟ البوستر بيفضل ظاهر
+  });
+})();
+
+/* ---------- 1-ج) 🟢 علامة التواجد (ثابتة Online) ---------- */
+(function mountStatus(){
+  const st = CONFIG.status;
+  const chips = document.querySelectorAll("[data-status]");
+  if (!st.on){ chips.forEach(c => c.remove()); return; }
+
+  chips.forEach(chip => {
+    chip.querySelector(".status-text").textContent = st.onlineText;
+  });
+})();
+
+/* ---------- 2. شريط السوشيال ---------- */
+CONFIG.socials.forEach(s => {
+  // 🎨 الأيقونات دي للزينة بس: مفيش لينك وراهم، الدوسة مش بتنقل في أي حتة
+  const b = document.createElement("span");
+  b.className = "soc";
+  b.setAttribute("aria-hidden", "true");
+  b.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">${ICONS[s.network] || ICONS.facebook}</svg>`;
+  $("socials").appendChild(b);
+});
+
+/* ---------- 3. الثيمات (زرار الألوان تحت-يمين) ---------- */
+let themeIndex = 0;
+let accentRGB = { r:255, g:95, b:158 };      // لون الثيم الحالي — الثلج بياخد منه
+
+function applyTheme(i){
+  const t = CONFIG.themes[i];
+  root.style.setProperty("--bg",        t.bg);
+  root.style.setProperty("--bg-soft",   t.bg);
+  root.style.setProperty("--card",      t.card);
+  root.style.setProperty("--card-line", t.line);
+  root.style.setProperty("--accent",    t.accent);
+  root.style.setProperty("--accent-2",  t.accent2);
+  root.style.setProperty("--text",      t.text);
+  root.style.setProperty("--muted",     rgba(t.text, .62));
+  root.style.setProperty("--shadow",    t.shadow);
+  root.style.setProperty("--img-glow",  t.glow);
+  $("themeLabel").textContent = t.label;
+  accentRGB = hexToRgb(t.accent);            // نقاط الثلج بتغيّر لونًا فورًا
+}
+function hexToRgb(hex){
+  const h = hex.replace("#","");
+  const v = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+  const n = parseInt(v, 16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
+function rgba(hex, a){ const c = hexToRgb(hex); return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`; }
+
+$("themeBtn").addEventListener("click", () => {
+  themeIndex = (themeIndex + 1) % CONFIG.themes.length;
+  applyTheme(themeIndex);
+});
+applyTheme(0);
+
+/* ---------- 4. ❄️ ثلج الصفحة كله ---------- */
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+if (CONFIG.pageSnow.on && !reduceMotion){
+  const cfg   = CONFIG.pageSnow;
+  const cv    = $("pageSnow");
+  const ctx   = cv.getContext("2d");
+  const rnd   = (a, b) => a + Math.random() * (b - a);
+  let vw = 0, vh = 0, parts = [], last = performance.now();
+
+  const spawn = (anywhere) => {
+    const up = Math.random() < cfg.rise;
+    return {
+      x: Math.random() * vw,
+      y: anywhere ? Math.random() * vh : (up ? vh + 8 : -8),
+      r: rnd(.9, 2.6) * cfg.size,
+      vy: rnd(14, 34) * (up ? -1 : 1) * cfg.speed,
+      sway: rnd(6, 20),
+      phase: Math.random() * Math.PI * 2,
+      alpha: rnd(.5, 1) * cfg.alpha,
+      tinted: Math.random() < .5,
+      up
+    };
+  };
+  function sizeVeil(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    vw = window.innerWidth; vh = window.innerHeight;
+    cv.width = vw * dpr; cv.height = vh * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const n = Math.max(cfg.min, Math.min(cfg.max, Math.round(vw * vh / cfg.density)));
+    parts = Array.from({ length: n }, () => spawn(true));
+  }
+  function drawVeil(now){
+    const dt = Math.min(.05, (now - last) / 1000);
+    last = now;
+    ctx.clearRect(0, 0, vw, vh);
+    for (let i = 0; i < parts.length; i++){
+      const p = parts[i];
+      p.phase += dt * 1.9;
+      p.y += p.vy * dt;
+      const x = p.x + Math.sin(p.phase) * p.sway;
+      const a = p.alpha * (.78 + .22 * Math.sin(p.phase * 2.4));
+      const rgb = p.tinted ? `${accentRGB.r}, ${accentRGB.g}, ${accentRGB.b}` : "255, 255, 255";
+      ctx.beginPath(); ctx.arc(x, p.y, p.r * 3.2, 0, 6.2832);          // هالة واسعة
+      ctx.fillStyle = `rgba(${rgb}, ${a * .1})`; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, p.y, p.r * 1.9, 0, 6.2832);          // هالة قريبة
+      ctx.fillStyle = `rgba(${rgb}, ${a * .26})`; ctx.fill();
+      ctx.shadowColor = `rgba(${rgb}, ${Math.min(1, a * 1.1)})`;       // التوهّج
+      ctx.shadowBlur = p.r * 5;
+      ctx.beginPath(); ctx.arc(x, p.y, p.r, 0, 6.2832);                // النواة
+      ctx.fillStyle = `rgba(${rgb}, ${a})`; ctx.fill();
+      ctx.shadowBlur = 0;
+      if ((p.up && p.y < -12) || (!p.up && p.y > vh + 12)) parts[i] = spawn(false);
+    }
+    requestAnimationFrame(drawVeil);
+  }
+  window.addEventListener("resize", sizeVeil);
+  sizeVeil();
+  requestAnimationFrame(drawVeil);
+}
+
+/* ---------- 5. مشغّل الـ mp3 ---------- */
+const audio = $("audio");
+let current = 0;
+audio.volume = parseFloat($("volume").value);
+
+/* ---------- 5-أ) أعمدة الـ EQ: بتقيس الصوت نفسه وتتحرك معاه ---------- */
+const vizBars = [];
+for (let i = 0; i < 32; i++) vizBars.push($("viz").appendChild(document.createElement("i")));
+const vizLevels = new Array(vizBars.length).fill(.05);
+
+let vizAnalyser = null, vizData = null, vizCtx = null;
+function plugViz(){
+  if (vizAnalyser) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  vizCtx = new Ctx();
+  vizAnalyser = vizCtx.createAnalyser();
+  vizAnalyser.fftSize = 128;                       // 64 موجة تردد
+  vizAnalyser.smoothingTimeConstant = .82;         // رقم أكبر = حركة أنعم
+  vizCtx.createMediaElementSource(audio).connect(vizAnalyser);
+  vizAnalyser.connect(vizCtx.destination);
+  vizData = new Uint8Array(vizAnalyser.frequencyBinCount);
+}
+function drawViz(){
+  requestAnimationFrame(drawViz);
+  const live = !!vizAnalyser && !audio.paused;
+  if (live) vizAnalyser.getByteFrequencyData(vizData);
+  for (let i = 0; i < vizBars.length; i++){
+    const bin = 1 + Math.floor(Math.pow(i / vizBars.length, 1.7) * 44);
+    const target = live ? Math.max(.05, vizData[bin] / 255) : .05;
+    vizLevels[i] += (target - vizLevels[i]) * (live ? .4 : .07);
+    vizBars[i].style.height = (vizLevels[i] * 100).toFixed(1) + "%";
+  }
+}
+drawViz();
+
+function buildPlaylist(){
+  $("playlist").innerHTML = "";
+  CONFIG.songs.forEach((s, i) => {
+    const row = document.createElement("div");
+    row.className = "track" + (i === current ? " active" : "");
+    row.innerHTML = `
+      <div class="idx">${i + 1}</div>
+      <div class="meta">
+        <div class="t">${s.title}</div>
+        <div class="a">${s.artist}</div>
+      </div>
+      <div class="dur" data-i="${i}">--:--</div>`;
+    row.addEventListener("click", () => loadTrack(i, true));
+    $("playlist").appendChild(row);
+  });
+}
+function loadTrack(i, autoplay){
+  current = (i + CONFIG.songs.length) % CONFIG.songs.length;
+  const s = CONFIG.songs[current];
+  audio.src = s.src;
+  $("nowTitle").textContent  = s.title;
+  $("nowArtist").textContent = s.artist;
+  document.querySelectorAll(".track").forEach((el, k) =>
+    el.classList.toggle("active", k === current));
+  if (autoplay) audio.play().catch(() => setPlayIcon(false));
+}
+function setPlayIcon(playing){
+  $("playBtn").innerHTML = playing ? "&#10074;&#10074;" : "&#9654;";
+  $("dockPlayIcon").innerHTML = playing
+    ? '<path d="M8 5.5h3v13H8v-13zm5 0h3v13h-3v-13z"/>'
+    : '<path d="M8 5.5v13l11-6.5-11-6.5z"/>';
+  document.body.classList.toggle("playing", playing);
+}
+function togglePlay(){
+  if (!audio.src) loadTrack(0, false);
+  audio.paused ? audio.play().catch(() => {}) : audio.pause();
+}
+
+$("playBtn").addEventListener("click", togglePlay);
+$("dockPlay").addEventListener("click", togglePlay);
+$("prevBtn").addEventListener("click", () => loadTrack(current - 1, true));
+$("nextBtn").addEventListener("click", () => loadTrack(current + 1, true));
+
+audio.addEventListener("play",  () => setPlayIcon(true));
+audio.addEventListener("play",  () => { plugViz(); if (vizCtx && vizCtx.state === "suspended") vizCtx.resume(); });
+audio.addEventListener("pause", () => setPlayIcon(false));
+audio.addEventListener("ended", () => loadTrack(current + 1, true));
+const seek = $("seek");
+audio.addEventListener("timeupdate", () => {
+  const d = audio.duration || 0, c = audio.currentTime || 0;
+  if (!seek.classList.contains("drag")){          /* وانت بتسحب الوقت يمشي ورا إيدك مش ورا الأغنية */
+    $("progressFill").style.width = d ? (c / d * 100) + "%" : "0%";
+    $("curTime").textContent = fmt(c);
+  }
+  $("durTime").textContent = fmt(d);
+  const cell = document.querySelector(`.dur[data-i="${current}"]`);
+  if (cell && d) cell.textContent = fmt(d);
+});
+
+/* 🎚️ شريط الزمن بقى سلايدر: دوسة = قفزة، وسحب = تتبع زي مشغّل الموبايل بالظبط */
+function seekTo(e){
+  const d = audio.duration; if (!d) return;
+  const r = seek.getBoundingClientRect();
+  const p = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  audio.currentTime = p * d;
+  $("progressFill").style.width = (p * 100) + "%";
+  $("curTime").textContent = fmt(p * d);
+}
+let seeking = false;
+seek.addEventListener("pointerdown", (e) => {
+  seeking = true; seek.classList.add("drag");
+  seek.setPointerCapture(e.pointerId); seekTo(e); e.preventDefault();
+});
+seek.addEventListener("pointermove", (e) => { if (seeking) seekTo(e); });
+["pointerup", "pointercancel"].forEach((ev) =>
+  seek.addEventListener(ev, () => { seeking = false; seek.classList.remove("drag"); }));
+
+/* 🔊 سلايدر الصوت — نفس شكل شريط الزمن، والملء بيترسم على قد القيمة */
+function paintVolume(el){ el.style.setProperty("--vol", (parseFloat(el.value) * 100) + "%"); }
+$("volume").addEventListener("input", (e) => { audio.volume = parseFloat(e.target.value); paintVolume(e.target); });
+paintVolume($("volume"));
+function fmt(s){
+  s = Math.floor(s || 0);
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
+buildPlaylist();
+loadTrack(0, false);
+
+/* ---------- 6. جاليري صور المغنّي + الصورة الكبيرة ---------- */
+let lbList = CONFIG.images;      // اللي بيتعرض دلوقتي (صور الجاليري أو الصورة الرئيسية)
+let openIndex = 0;
+let lbRaw = false;               // true = الصورة الرئيسية: إطار بلا تحديد و جلو أقوى
+
+function buildGallery(){
+  $("gallery").innerHTML = "";
+  CONFIG.images.forEach((img, i) => {
+    const tile = document.createElement("div");
+    tile.className = "tile";
+    tile.innerHTML = `<img src="${img.src}" alt="${img.caption || ""}" loading="lazy">`
+                   + (img.caption ? `<div class="cap">${img.caption}</div>` : "")
+                   + (img.video ? '<span class="badge">&#9654;</span>' : "");
+    if (img.video){
+      // الفيديو بيشتغل في مكانه: بالماوس على الكمبيوتر وبالدوسة على الموبايل — من غير نافذة
+      let reel = null;
+      const makeReel = () => {
+        reel = document.createElement("video");
+        reel.className = "reel";
+        reel.src = img.video;
+        reel.muted = true; reel.loop = true; reel.autoplay = true;
+        reel.setAttribute("playsinline", "");
+        tile.appendChild(reel);
+      };
+      tile.addEventListener("mouseenter", () => { if (!reel) makeReel(); });
+      tile.addEventListener("mouseleave", () => { if (reel) reel.pause(); });
+      tile.addEventListener("click", () => {
+        if (!reel) { makeReel(); return; }
+        reel.paused ? reel.play().catch(() => {}) : reel.pause();
+      });
+    } else {
+      tile.addEventListener("click", () => openLightbox(i));
+    }
+    $("gallery").appendChild(tile);
+  });
+}
+function showLightbox(list, i, raw){
+  lbList = list;
+  openIndex = i;
+  lbRaw = !!raw;
+  const item = list[i];
+  $("lbImage").src = item.src;
+  $("lbImage").alt = item.caption || "";
+  $("lbCaption").textContent = item.caption || "";
+  $("lightbox").classList.toggle("raw", lbRaw);
+  $("lightbox").classList.add("open");
+}
+function openLightbox(i){ showLightbox(CONFIG.images, i); }
+
+/* 🖼️ الكوفر والصورة الشخصية بقوا للعرض بس — مفيش نافذة لما تدوس عليهم */
+
+function closeLightbox(){ $("lightbox").classList.remove("open"); }
+function stepLightbox(dir){
+  showLightbox(lbList, (openIndex + dir + lbList.length) % lbList.length, lbRaw);
+}
+$("lbClose").addEventListener("click", closeLightbox);
+$("lbPrev").addEventListener("click", () => stepLightbox(-1));
+$("lbNext").addEventListener("click", () => stepLightbox(1));
+$("lightbox").addEventListener("click", (e) => { if (e.target === $("lightbox")) closeLightbox(); });
+document.addEventListener("keydown", (e) => {
+  if (!$("lightbox").classList.contains("open")) return;
+  if (e.key === "Escape")     closeLightbox();
+  if (e.key === "ArrowLeft")  stepLightbox(-1);
+  if (e.key === "ArrowRight") stepLightbox(1);
+});
+
+buildGallery();
+</script>
+</body>
+</html>
